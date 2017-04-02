@@ -1,0 +1,6 @@
+#<IfModule mod_rewrite.c>
+	RewriteEngine On
+	RewriteCond %{REQUEST_URL} !-f
+	RewriteCond %{REQUEST_URL} !-d
+	RewriteRule ^ index.php [QSA,L]
+#</IfModule>
