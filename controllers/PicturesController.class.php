@@ -5,20 +5,27 @@ class PicturesController extends Controller{
     public function __construct(){
         parent::__construct();
     }
-
+    /**
+     * param: $req=>请求
+     *        $rep=>响应
+     *        $param=>参数
+     * introduce: 获取图片/可分段
+     * return : 有数据返回200和对应数据数组
+     *          无数据返回404
+     * 
+    **/
     public function getAll($req, $rep, $param){
-        
-        $start   = isset($param['start'])? $param['start'] : null;
-        $count   = isset($param['count'])? $param['count'] : null;
-        
+        $shift   = $this->get_shift();
+        $start   = isset($param['start'])? $param['start'] + $shift : null;
+        $count   = isset($param['count'])? $param['count']  : null;
+        //判断是否应该要限制范围
         $isLimit = count($param) === 2;
-        
+
         $sql = "SELECT {$GLOBALS['allfile']} FROM " . TABLE_FILE
-             . ($isLimit ? " LIMIT $start,$count" : '');
+             . ($isLimit ? " LIMIT $start, $count" : "");
         
         $exec = $this->sql->prepare($sql);
         $bool = $exec->execute();    
-        //var_dump($exec->errorInfo());
         $array = $exec->fetchAll(PDO::FETCH_CLASS);
 
         if($bool && count($array) !== 0)
@@ -37,8 +44,8 @@ class PicturesController extends Controller{
      * 
     **/
     public function getSpecify($req, $rep, $param){
-        $type   = isset($param['type'])   ? $param['type'] : NULL;
-        $string = isset($param['string']) ? $param['string'] : NULL;
+        $type    = isset($param['type'])   ? $param['type'] : NULL;
+        $string  = isset($param['string']) ? $param['string'] : NULL;
         //属性映射
         $attrname = [NAME => 'filename', TAG => 'tagname'];
         
@@ -46,9 +53,12 @@ class PicturesController extends Controller{
             if(array_key_exists($type, $attrname)){
                 //根据条件构建限制语句
                 $limit = '';
-                if(count($param) === 4)
-                    $limit = " LIMIT {$param['start']}, {$param['count']} ";
-
+                if(count($param) === 4){
+                    $shift   = $this->get_shift();
+                    $start   = isset($param['start']) ? $param['start'] + $shift : null;
+                    $count   = isset($param['count']) ? $param['count']  : null;
+                    $limit = " LIMIT {$start}, {$count} ";
+                }
                switch($type){
                    case NAME: $sql = SQL_FIND_PIC_BY_NAME . $limit; break;
                    case TAG : $sql = SQL_FIND_PIC_BY_TAG  . $limit; break;
@@ -82,9 +92,9 @@ class PicturesController extends Controller{
        $url       = isset($body['url'])        ? $body['url']       : NULL;
        $durl      = isset($body['deleteUrl'])  ? $body['deleteUrl'] : NULL;
        $tags      = isset($body['tags'])       ? $body['tags']      : NULL;
-       $size      = isset($body['size'])       ? $body['size']      : NULL;
-       $width     = isset($body['width'])      ? $body['width']     : NULL;
-       $height    = isset($body['height'])     ? $body['height']    : NULL;
+       $size      = isset($body['size'])       ? $body['size']      : 0;
+       $width     = isset($body['width'])      ? $body['width']     : 0;
+       $height    = isset($body['height'])     ? $body['height']    : 0;
        $username  = isset($body['username'])   ? $body['username']  : DEFAULT_USERNAME;
        $filename  = isset($body['filename'])   ? $body['filename']  : NULL;
        $timestamp = isset($body['timestamp'])  ? $body['timestamp'] : NULL;
@@ -113,7 +123,7 @@ class PicturesController extends Controller{
                            ->prepare(SQL_INSERT_TO_CHIP);
           //查询指定Tag预处理器
           $exec_find_tag   = $this->sql
-                           ->prepare(SQL_INSERT_TO_TAGS);
+                           ->prepare(SQL_FIND_TAG_BY_NAME);
                    
           //插入Tag预处理器
           $exec_insert_tag = $this->sql
@@ -137,16 +147,21 @@ class PicturesController extends Controller{
             //存在则直接创建关系
             ##注意: 这里用rowCount()将不能用fetchAll取得属性
             if(count($array) !== 0){
-                $tid = $array['tid'];
+                $tid = $array[0]['tid'];
+                var_dump($array);
             //不存在则先插入Tag，再创建关系
             }else{
                 $exec_insert_tag->execute([$tag]);
                 
                 $tid = $this->sql->lastInsertId();
             }
+            echo $pid . '_' . $tid . '|';
             $exec_chip->execute([$pid, $tid]);
             
           }
+
+          $this->increase_shift();
+          
           return $rep->withStatus(201);
        }
        return $rep->withStatus(406);
@@ -162,13 +177,13 @@ class PicturesController extends Controller{
     **/
 
     public function delete($req, $rep, $param){
-       
+    
+       $bool = $this->sql->exec(SQL_DELETE_ALL_FILES);
+       return $rep->withStatus($bool ? 404 : 403);
     }
 
 
-    public function check($req, $rep, $param){
-        
-    }
+    
 
     
 

@@ -3,6 +3,7 @@ require_once __DIR__ . '/lib/core.php';
 
 use \Slim\App;
 
+session_start();
 header('Access-Control-Allow-Origin:*');
 header('Access-Control-Allow-Methods:POST,PUT,DELETE,GET');
 
@@ -18,7 +19,7 @@ $conn->group("/api/v1", function(){
     //==============
     //=   标签控制  =
     //==============
-    $this->group("/tagname", function(){
+    $this->group("/tag", function(){
         $tagsC = "\TagsController";
         /*Method   : GET
          *introduce: 获取服务器上的所有标签
@@ -61,8 +62,8 @@ $conn->group("/api/v1", function(){
               fail    : 404
           }
          */
-        $this->get("/specify/{string}/{type:[0-9]+}[/{start:[0-9]+}/{count:[0-9]+}]", 
-                   "{$picturesC}:getSpecify");
+        $this->get("/tags[/{start:[0-9]+}/{count:[0-9]+}]", 
+                   "{$picturesC}:getByTags");
         
          /*Method   : GET
          *introduce: 获取服务器上的所有图片, 可限制范围
@@ -89,10 +90,19 @@ $conn->group("/api/v1", function(){
               fail    : 401, 403, 404
           }
         */
-        $this->delete("/{hash}", "{$picturesC}:delete");
+        $this->delete("", "{$picturesC}:delete");
+        
+    });
 
-        //检测是否有同一张图片
-        $this->get("/hash/{hash}", "{$picturesC}:check");
+
+     //==============
+    //=   用户控制  =
+    //==============
+    $this->group('/user', function(){
+        $userC = '\UserController';
+        //请求获取一个session记录图片偏移
+        $this->get('', "{$userC}:postSession");
+        
     });
 });
 

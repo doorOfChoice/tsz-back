@@ -2,15 +2,21 @@
 
 class Controller {
     protected $sql;
-
+    protected $redis;
     public function __construct(){
         $conn = 'mysql:dbname=' . DBNAME . ';host=' . HOST . ';port=' . PORT;
 
         $this->sql = new PDO($conn, USERNAME, PASSWORD);
-        //创建基础表
+        //创建mysql基础表
         $this->sql->exec(FILE_CREATE);
         $this->sql->exec(TAGS_CREATE);
         $this->sql->exec(CHIP_CREATE); 
+
+        //建立redis链接
+        $this->redis = new Redis();
+        $this->redis->pconnect("127.0.0.1", 6379);
+
+
     }
 
     //判断请求元素是否是>=0的数字
@@ -54,6 +60,23 @@ class Controller {
                preg_match_all($rex, $str);
 
     }
+
+    //增加redis数据库里面所有临时用户的下标
+    public function increase_shift(){
+       $allkeys = $this->redis->keys('*');
+       
+       foreach($allkeys as $index=>$key){
+           $this->redis->incr($key);
+       }
+    }
+    //获取当前用户的偏移
+    public function get_shift(){
+        $shift = $this->redis->get(session_id());
+        //延长生命周期
+        $this->redis->setTimeout(session_id(), 1800);
+        return $shift ? $shift : 0;
+    }
+
     //获取数组中不同的值
      public function distinct(array $tags){
         $row = [];
