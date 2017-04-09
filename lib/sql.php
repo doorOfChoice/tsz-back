@@ -57,4 +57,5 @@ define("SQL_INSERT_TO_CHIP", 'INSERT INTO' . TABLE_CHIP . '(pid, tid) VALUES(?,?
 //插入标签
 define('SQL_INSERT_TO_TAGS', 'INSERT INTO' . TABLE_TAGS . '(tagname) VALUES(?)');
 
+//删除所有文件
 define('SQL_DELETE_ALL_FILES', 'DELETE FROM ' . TABLE_FILE);

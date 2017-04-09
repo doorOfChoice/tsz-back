@@ -73,7 +73,7 @@ class Controller {
     public function get_shift(){
         $shift = $this->redis->get(session_id());
         //延长生命周期
-        $this->redis->setTimeout(session_id(), 1800);
+        $this->redis->setTimeout(session_id(), 3600*24*30);
         return $shift ? $shift : 0;
     }
 

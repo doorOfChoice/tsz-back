@@ -19,7 +19,7 @@ $conn->group("/api/v1", function(){
     //==============
     //=   标签控制  =
     //==============
-    $this->group("/tag", function(){
+    $this->group("/tags", function(){
         $tagsC = "\TagsController";
         /*Method   : GET
          *introduce: 获取服务器上的所有标签
@@ -64,6 +64,9 @@ $conn->group("/api/v1", function(){
          */
         $this->get("/tags[/{start:[0-9]+}/{count:[0-9]+}]", 
                    "{$picturesC}:getByTags");
+
+        $this->get("/filename/{filename}[/{start:[0-9]+}/{count:[0-9]+}]", 
+                   "{$picturesC}:getByName");           
         
          /*Method   : GET
          *introduce: 获取服务器上的所有图片, 可限制范围
@@ -98,10 +101,10 @@ $conn->group("/api/v1", function(){
      //==============
     //=   用户控制  =
     //==============
-    $this->group('/user', function(){
+    $this->group('/users', function(){
         $userC = '\UserController';
         //请求获取一个session记录图片偏移
-        $this->get('', "{$userC}:postSession");
+        $this->get('', "{$userC}:getSession");
         
     });
 });

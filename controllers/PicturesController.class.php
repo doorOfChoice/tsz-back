@@ -6,11 +6,11 @@ class PicturesController extends Controller{
         parent::__construct();
     }
     /**
-     * param: $req=>请求
-     *        $rep=>响应
-     *        $param=>参数
-     * introduce: 获取图片/可分段
-     * return : 有数据返回200和对应数据数组
+     * @param: $req=>请求
+     * @param  $rep=>响应
+     * @param  $param=>参数
+     * 获取图片/可分段
+     * @return : 有数据返回200和对应数据数组
      *          无数据返回404
      * 
     **/
@@ -21,7 +21,7 @@ class PicturesController extends Controller{
         //判断是否应该要限制范围
         $isLimit = count($param) === 2;
 
-        $sql = "SELECT {$GLOBALS['allfile']} FROM " . TABLE_FILE
+        $sql = "SELECT {$GLOBALS['allfile']} FROM " . TABLE_FILE . 'ORDER BY timestamp DESC'
              . ($isLimit ? " LIMIT $start, $count" : "");
         
         $exec = $this->sql->prepare($sql);
@@ -34,48 +34,87 @@ class PicturesController extends Controller{
         return $rep->withStatus(404);  
     }
 
-    /**
-     * param: $req=>请求
-     *        $rep=>响应
-     *        $param=>参数
-     * introduce: 根据条件获取全部或者部分图片
-     * return : 有数据返回200和对应数据数组
+   /**
+     * @param: $req=>请求
+     * @param  $rep=>响应
+     * @param  $param=>参数
+     * 根据名称查找图片
+     * @return : 有数据返回200和对应数据数组
      *          无数据返回404
      * 
     **/
-    public function getSpecify($req, $rep, $param){
-        $type    = isset($param['type'])   ? $param['type'] : NULL;
-        $string  = isset($param['string']) ? $param['string'] : NULL;
-        //属性映射
-        $attrname = [NAME => 'filename', TAG => 'tagname'];
-        
-        if($type && $string && $this->is_str($type) && $this->is_str($string)){
-            if(array_key_exists($type, $attrname)){
-                //根据条件构建限制语句
-                $limit = '';
-                if(count($param) === 4){
-                    $shift   = $this->get_shift();
-                    $start   = isset($param['start']) ? $param['start'] + $shift : null;
-                    $count   = isset($param['count']) ? $param['count']  : null;
-                    $limit = " LIMIT {$start}, {$count} ";
-                }
-               switch($type){
-                   case NAME: $sql = SQL_FIND_PIC_BY_NAME . $limit; break;
-                   case TAG : $sql = SQL_FIND_PIC_BY_TAG  . $limit; break;
-                   default  : $sql = NULL;
-               }
-               
-               $exec  = $this->sql->prepare($sql);
-               $bool  = $exec->execute([$string]);
-               $array = $exec->fetchAll(PDO::FETCH_CLASS);
+    public function getByName($req, $rep, $param){
+      $isLimit = count($param) === 3; 
+      
+      $filename = isset($param['filename']) ? $param['filename'] : null;
 
-               if(!$bool || count($array) === 0){
-                   return $rep->withStatus(404);
-               }
-               return $rep->withJson(['data'=>$array], 200);
-               
-            }
+      if($isLimit){
+        $shift   = $this->get_shift();
+        $start   = isset($param['start'])? $param['start'] + $shift : null;
+        $count   = isset($param['count'])? $param['count']  : null;
+      }
+
+      if($this->is_str($filename)){
+        $exec = $this->sql->prepare(SQL_FIND_PIC_BY_NAME . ($isLimit ? "LIMIT {$start},{$count}" : ''));
+        $result = $exec->execute([$filename]);
+        $array  = $exec->fetchAll();
+        
+        if(!$result || count($array) === 0){
+            return $rep->withStatus(404);
         }
+
+        return $rep->withJson(['data'=>$array], 200);
+      }
+
+      return $rep->withStatus(404);
+    }
+
+     /**
+     * @param: $req=>请求
+     * @param  $rep=>响应
+     * @param  $param=>参数
+     * 根据标签查找图片
+     * @return : 有数据返回200和对应数据数组
+     *          无数据返回404
+     * 
+    **/
+    public function getByTags($req, $rep, $param){
+      $isLimit = count($param) === 2; 
+      
+      if($isLimit){
+        $shift   = $this->get_shift();
+        $start   = isset($param['start'])? $param['start'] + $shift : null;
+        $count   = isset($param['count'])? $param['count']  : null;
+      }
+      
+      if(count($_GET) === 0){
+        return $rep->withStatus(404);
+      }
+      //检查标签的合法性, 失败用404拒绝
+      foreach($_GET as $key => $value){
+          if(!$this->is_str($value))
+            return $rep->withStatus(404);
+          $_GET[$key] = '"' . $value . '"';   
+      }  
+      
+      //构建标签
+      $tags = implode(',', $_GET);
+      //构建标签查询的语句
+      $sql = "SELECT DISTINCT {$GLOBALS['allfile']} FROM " . TABLE_FILE . "WHERE pid IN (" 
+           . "SELECT pid FROM " . TABLE_CHIP . " WHERE tid IN ("
+           . "SELECT tid FROM " . TABLE_TAGS . " WHERE tagname IN ({$tags})"
+           . ')) ORDER BY timestamp '
+           . ($isLimit ? "LIMIT {$start},{$count}" : ''); 
+      $exec = $this->sql->prepare($sql);
+
+      $result = $exec->execute();
+      $array  = $exec->fetchAll(PDO::FETCH_CLASS);
+     
+      //查询失败后返回404
+      if(!$result || count($array) === 0)
+        return $rep->withStatus(404);
+
+      return $rep->withJson(['data' => $array], 200);        
     }
     /**
      * param: $req=>请求
@@ -179,12 +218,8 @@ class PicturesController extends Controller{
     public function delete($req, $rep, $param){
     
        $bool = $this->sql->exec(SQL_DELETE_ALL_FILES);
+
        return $rep->withStatus($bool ? 404 : 403);
     }
-
-
-    
-
-    
 
 }

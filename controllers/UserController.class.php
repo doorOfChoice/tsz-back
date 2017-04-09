@@ -7,9 +7,10 @@ class UserController extends TagsController {
     }
 
     //新增一个session用户
-    public function postSession($req, $rep, $param){
+    public function setCookie($req, $rep, $param){
+        
         $this->redis->set(session_id(), 0);
-        $this->redis->setTimeout(session_id(), 1800);
+        $this->redis->setTimeout(session_id(), 3600*24*30);
         return $rep->withStatus(201);
     }
 }
