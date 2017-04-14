@@ -3,7 +3,7 @@ require_once __DIR__ . '/lib/core.php';
 
 use \Slim\App;
 
-session_start();
+
 header('Access-Control-Allow-Origin:*');
 header('Access-Control-Allow-Methods:POST,PUT,DELETE,GET');
 
@@ -14,6 +14,8 @@ $config = [
 ];
 
 $conn = new App($config);
+
+$conn->add("\UserController:setCookie");
 
 $conn->group("/api/v1", function(){
     //==============
@@ -76,13 +78,6 @@ $conn->group("/api/v1", function(){
           }
          */
         $this->get("[/{start:[0-9]+}/{count:[0-9]+}]", "{$picturesC}:getAll");
-        /*Method   : POST
-         *introduce: 向服务器新增图片
-          *return :{
-              success : 200,
-              fail    : 401, 403, 404
-          }
-        */ 
         
         $this->post("", "{$picturesC}:post");
         
@@ -104,10 +99,11 @@ $conn->group("/api/v1", function(){
     $this->group('/users', function(){
         $userC = '\UserController';
         //请求获取一个session记录图片偏移
-        $this->get('', "{$userC}:getSession");
+        //$this->get('', "{$userC}:getSession");
         
     });
 });
+
 
 $conn->run();
 

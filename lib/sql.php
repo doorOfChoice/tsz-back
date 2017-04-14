@@ -1,5 +1,5 @@
 <?php
-$GLOBALS['file'] = ['url', 'size', 'width', 'height', 'filename', 'username', 'timestamp'];
+$GLOBALS['file'] = ['pid','url', 'size', 'width', 'height', 'filename', 'username', 'timestamp'];
 $GLOBALS['allfile'] = implode(',', $GLOBALS['file']);
 
 //创建标签表
@@ -42,9 +42,16 @@ SELECT {$GLOBALS['allfile']} FROM " . TABLE_FILE . ' WHERE pid IN
 //查找指定的标签
 define('SQL_FIND_TAG_BY_NAME', 'SELECT * FROM' . TABLE_TAGS . 'WHERE tagname=?');
 
+
+define('SQL_FIND_PIC', 
+"SELECT * FROM " . TABLE_FILE . ',' . TABLE_TAGS . ',' . TABLE_CHIP . ' WHERE '
+. TABLE_FILE . '.pid=' . TABLE_CHIP . '.pid AND ' . TABLE_CHIP . '.tid=' . TABLE_TAGS . '.tid '
+);
+
 //查找指定名称的图片
 define('SQL_FIND_PIC_BY_NAME', 
-"SELECT {$GLOBALS['allfile']} FROM ". TABLE_FILE .' WHERE filename=? ');
+SQL_FIND_PIC . 'AND ' . TABLE_FILE . '.filename=?'
+);
 
 //插入图片
 define('SQL_INSERT_TO_FILE', 'INSERT INTO' . TABLE_FILE 

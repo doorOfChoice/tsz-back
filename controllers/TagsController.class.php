@@ -21,7 +21,7 @@ class TagsController extends Controller{
         
         $array = $exec->fetchAll(PDO::FETCH_CLASS);
 
-        if($bool && count($array) !== 0){
+        if($bool){
             $rows = [];
             foreach($array as $row){
                 $rows[] = $row->tagname;
@@ -36,21 +36,19 @@ class TagsController extends Controller{
        $body = $req->getParsedBody();
        
        $tagname = isset($body['tagname']) ? $body['tagname'] : NULL;
-
-       if($this->is_str($tagname)){
-            //$tags = $this->distinct(preg_split("/\|/", $tagname));
-            ##JSON测试
-            $tags      = $tagname;
-            $exec = $this->sql->prepare(SQL_INSERT_TO_TAGS);
-            foreach($tags as $key=>$tag){
+       $tagname = explode(',', $tagname);
+       
+           
+       $tags      = $tagname;
+       $exec = $this->sql->prepare(SQL_INSERT_TO_TAGS);
+       foreach($tags as $key=>$tag){
                 //检测到非法参数,不接受
-                if(!$this->is_str($tag))
-                    return $rep->withStatus(406);
-                $exec->execute([$tag]);
-            }
-
-            return $rep->withStatus(201);
+         if(!$this->is_str($tag))
+           return $rep->withStatus(406);
+         $exec->execute([$tag]);
        }
-       return $rep->withStatus(406);
+
+       return $rep->withStatus(201);
+       
     }   
 }

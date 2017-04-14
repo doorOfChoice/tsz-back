@@ -5,6 +5,37 @@ class PicturesController extends Controller{
     public function __construct(){
         parent::__construct();
     }
+    
+
+    public function createPictures($datas, $start=0, $count=null)
+    {
+       $final = [];
+       
+       foreach($datas as $index=>$object)
+       {
+         $pid = $object->pid;
+         if(!array_key_exists($pid, $final))
+         {
+            $final[$pid]['tags'] = [];
+            foreach($object as $key=>$value)
+            {
+                if($key !== 'pid' && $key !== 'tid' && $key !== 'deleteUrl')
+                {
+                    if($key === 'tagname')
+                        $final[$pid]['tags'][] = $value;
+                    else
+                        $final[$pid][$key]  = $value;    
+                }
+            }
+         }else{
+             $final[$pid]['tags'][] = $object->tagname;
+         }
+       }
+
+       //var_dump($final);
+       return array_slice(array_values($final), $start, $count);    
+    }
+
     /**
      * @param: $req=>请求
      * @param  $rep=>响应
@@ -14,21 +45,26 @@ class PicturesController extends Controller{
      *          无数据返回404
      * 
     **/
+
     public function getAll($req, $rep, $param){
         $shift   = $this->get_shift();
+       
         $start   = isset($param['start'])? $param['start'] + $shift : null;
         $count   = isset($param['count'])? $param['count']  : null;
+        
         //判断是否应该要限制范围
         $isLimit = count($param) === 2;
 
-        $sql = "SELECT {$GLOBALS['allfile']} FROM " . TABLE_FILE . 'ORDER BY timestamp DESC'
-             . ($isLimit ? " LIMIT $start, $count" : "");
-        
+        $sql = SQL_FIND_PIC 
+             . ' ORDER BY timestamp DESC';
+        //echo $sql;
         $exec = $this->sql->prepare($sql);
         $bool = $exec->execute();    
-        $array = $exec->fetchAll(PDO::FETCH_CLASS);
 
-        if($bool && count($array) !== 0)
+        $array =$this->createPictures($exec->fetchAll(PDO::FETCH_CLASS),
+                $isLimit ? $start : 0, $isLimit ? $count : null);
+        
+        if($bool)
             return $rep->WithJson(['data'=>$array], 200);
 
         return $rep->withStatus(404);  
@@ -55,11 +91,12 @@ class PicturesController extends Controller{
       }
 
       if($this->is_str($filename)){
-        $exec = $this->sql->prepare(SQL_FIND_PIC_BY_NAME . ($isLimit ? "LIMIT {$start},{$count}" : ''));
+        $exec = $this->sql->prepare(SQL_FIND_PIC_BY_NAME);
         $result = $exec->execute([$filename]);
-        $array  = $exec->fetchAll();
+        $array  = $this->createPictures($exec->fetchAll(PDO::FETCH_CLASS),
+                $isLimit ? $start : 0, $isLimit ? $count : null);;
         
-        if(!$result || count($array) === 0){
+        if(!$result){
             return $rep->withStatus(404);
         }
 
@@ -100,18 +137,16 @@ class PicturesController extends Controller{
       //构建标签
       $tags = implode(',', $_GET);
       //构建标签查询的语句
-      $sql = "SELECT DISTINCT {$GLOBALS['allfile']} FROM " . TABLE_FILE . "WHERE pid IN (" 
-           . "SELECT pid FROM " . TABLE_CHIP . " WHERE tid IN ("
-           . "SELECT tid FROM " . TABLE_TAGS . " WHERE tagname IN ({$tags})"
-           . ')) ORDER BY timestamp '
-           . ($isLimit ? "LIMIT {$start},{$count}" : ''); 
+      $sql =  SQL_FIND_PIC . ' AND ' . TABLE_TAGS . '.tagname IN ' . "({$tags})" . ' ORDER BY timestamp '; 
+           
       $exec = $this->sql->prepare($sql);
 
       $result = $exec->execute();
-      $array  = $exec->fetchAll(PDO::FETCH_CLASS);
+      $array  = $this->createPictures($exec->fetchAll(PDO::FETCH_CLASS),
+                $isLimit ? $start : 0, $isLimit ? $count : null);;
      
       //查询失败后返回404
-      if(!$result || count($array) === 0)
+      if(!$result )
         return $rep->withStatus(404);
 
       return $rep->withJson(['data' => $array], 200);        
@@ -127,6 +162,12 @@ class PicturesController extends Controller{
     **/
     public function post($req, $rep, $param){
        $body = $req->getParsedBody();
+       
+       $tempTags = explode(',', $body['tags']);
+
+       $validTags = empty(trim($body['tags'])) || $this->is_tags(tempTags);
+       
+       $body['tags'] = $tempTags;
 
        $url       = isset($body['url'])        ? $body['url']       : NULL;
        $durl      = isset($body['deleteUrl'])  ? $body['deleteUrl'] : NULL;
@@ -137,9 +178,10 @@ class PicturesController extends Controller{
        $username  = isset($body['username'])   ? $body['username']  : DEFAULT_USERNAME;
        $filename  = isset($body['filename'])   ? $body['filename']  : NULL;
        $timestamp = isset($body['timestamp'])  ? $body['timestamp'] : NULL;
+       
        if($this->is_url_up($url)      && 
+          $validTags                  &&
           $this->is_url_de($durl)     &&
-          $this->is_tags($tags)       &&
           $this->is_number($size)     &&
           $this->is_number($width)    &&
           $this->is_number($height)   &&
@@ -172,11 +214,12 @@ class PicturesController extends Controller{
           ##JSON测试
           
           $tags_array      = $this->distinct($tags);
+
           foreach($tags_array as $key=>$tag){
               
             //有非法字符, 不接受请求
             if(!$this->is_str($tag))
-                return $rep->withStatus(406);
+               continue;
                 
             //标签是否存在
             $exec_find_tag->execute([$tag]);
@@ -187,14 +230,13 @@ class PicturesController extends Controller{
             ##注意: 这里用rowCount()将不能用fetchAll取得属性
             if(count($array) !== 0){
                 $tid = $array[0]['tid'];
-                var_dump($array);
             //不存在则先插入Tag，再创建关系
             }else{
                 $exec_insert_tag->execute([$tag]);
                 
                 $tid = $this->sql->lastInsertId();
             }
-            echo $pid . '_' . $tid . '|';
+            //echo $pid . '_' . $tid . '|';
             $exec_chip->execute([$pid, $tid]);
             
           }
